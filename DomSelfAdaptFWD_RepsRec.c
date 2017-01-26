@@ -37,7 +37,7 @@ void fitness(unsigned int N, double h, double s, unsigned int *inpop, double *ou
 double sumT_UI(unsigned int *Tin, unsigned int nrow);
 unsigned int parchoose(unsigned int N, double *culfit, double *fitsum, const gsl_rng *r);
 unsigned int bitswitch(unsigned int x);
-void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, const gsl_rng *r);
+void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r);
 void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, const gsl_rng *r);
 void reassign(unsigned int **neutin, unsigned int **neutout, unsigned int *selin, unsigned int *selout, unsigned int npoly, unsigned int N);
 void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N);
@@ -156,7 +156,7 @@ unsigned int bitswitch(unsigned int x){
 }
 
 /* Reproduction routine */
-void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, const gsl_rng *r){
+void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r){
 	unsigned int i, j, k;		/* Pop counter, neutral marker counter, rec counter */
 	unsigned int isself = 0;	/* Is this a selfing reproduction? */
 	unsigned int choose1 = 0;	/* Chromosome to be selected */
@@ -169,28 +169,17 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 	unsigned int nrec = 0;		/* Number of rec events */
 	unsigned int selfix = 0;	/* Selfing index */
 	unsigned int recix = 0;		/* Recombination index */
-	unsigned int repix = 0;		/* Reproduction index */	
 	
-	/* First deciding number of selfing, recombination events */
+	/* First deciding number of selfing events; creating vector of events + choosing */
 	nself = gsl_ran_binomial(r, self, N);
-	nrec = gsl_ran_binomial(r, R, (2*N-nself));
-	
-	/* Creating vector of events */
-	unsigned int *selfev = calloc(nself,sizeof(unsigned int));				/* Which events are selfing */
-	unsigned int *recev = calloc(nrec,sizeof(unsigned int));				/* Which events are recombinants */
-	unsigned int *maxrec = calloc((2*N-nself),sizeof(unsigned int));		/* Max number of rec events (to draw from) */
-	for(k = 0; k < (2*N-nself); k++){
-		*(maxrec + k) = k;
-	}
-	
-	/* Choosing events */
+	unsigned int *selfev = calloc(nself,sizeof(unsigned int));
 	gsl_ran_choose(r, selfev, nself, nums, N, sizeof(unsigned int));
-	gsl_ran_choose(r, recev, nrec, maxrec, (2*N-nself), sizeof(unsigned int));
 		
 	for(i = 0; i < N; i++){		/* Regenerating population */
     	
     	/* Choosing first parent, and relevant chromosomes */
 		choose1 = parchoose(N, culfit, fitsum, r);
+/*		printf("%d\n",choose1);*/
 		wc1 = gsl_ran_bernoulli(r,0.5);
 		wc2 = gsl_ran_bernoulli(r,0.5);
 		index1 = 2*choose1 + wc1;
@@ -207,55 +196,64 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 			index2 = 2*choose1 + wc2;
 		}else if(isself == 0){
 			choose2 = parchoose(N, culfit, fitsum, r);
+/*			printf("%d\n",choose2);*/
 			index2 = 2*choose2 + wc2;
 		}
 		(*(selout + 2*i)) = (*(selin + index1));
 		(*(selout + 2*i + 1)) = (*(selin + index2));
 		
 		/* Now copying over neutral fragment, accounting for recombination */
-		if(nrec != 0){
-			/*
-			printf("First entry is...%d\n",*(recev + recix));
-			printf("Repix is %d\n",repix);
-			*/
-			if(*(recev + recix) == repix){
-				recix++;
-				wc1 = bitswitch(wc1);
-				index1 = 2*choose1 + wc1;
-				if(isself == 1){
-					wc2 = bitswitch(wc2);
-					index2 = 2*choose1 + wc2;
+		if(R != 0){
+		
+			/* Now going along neutral fragment and recombining segment */
+			nrec = gsl_ran_poisson(r, R);
+			double *recev = calloc(nrec + 1,sizeof(double));
+			for(k = 0; k < nrec; k++){
+				*(recev + k) = gsl_ran_flat(r,0,1);
+			}
+			*(recev + nrec) = 1.01;
+			
+			recix = 0;
+			for(j = 0; j < npoly; j++){
+				if(*(polypos + j) >= *(recev + recix)){
+					wc1 = bitswitch(wc1);
+					index1 = 2*choose1 + wc1;
+					recix++;
 				}
+				*((*(neutout + 2*i)) + j) = *((*(neutin + index1)) + j);
 			}
-		}
-		repix++;
-		
-		if(nrec != 0 && isself == 0){
-			if(*(recev + recix) == repix){
-				recix++;
-				wc2 = bitswitch(wc2);
-				index2 = 2*choose2 + wc2;
+			free(recev);
+			
+			/* Now same for chr 2 */
+			nrec = gsl_ran_poisson(r, R);
+			double *recev2 = calloc(nrec + 1,sizeof(double));
+			for(k = 0; k < nrec; k++){
+				*(recev2 + k) = gsl_ran_flat(r,0,1);
 			}
-			repix++;
-		}
-		
-		for(j = 0; j < npoly; j++){
-			*((*(neutout + 2*i)) + j) = *((*(neutin + index1)) + j);
-			*((*(neutout + 2*i + 1)) + j) = *((*(neutin + index2)) + j);
-		}
-		
-		/*		
-		if(isrec == 1){
-			indext = index2;
-			index2 = index1;
-			index1 = indext;
-		}
-		*/
-				
+			*(recev2 + nrec) = 1.01;
+			
+			recix = 0;
+			for(j = 0; j < npoly; j++){
+				if(*(polypos + j) >= *(recev2 + recix)){
+					wc2 = bitswitch(wc2);
+					if(isself == 1){
+						index2 = 2*choose1 + wc2;
+					}else if(isself == 0){
+						index2 = 2*choose2 + wc2;
+					}
+					recix++;
+				}
+				*((*(neutout + 2*i + 1)) + j) = *((*(neutin + index2)) + j);
+			}
+			free(recev2);
+			
+		}else if (R == 0){
+			for(j = 0; j < npoly; j++){
+				*((*(neutout + 2*i)) + j) = *((*(neutin + index1)) + j);
+				*((*(neutout + 2*i + 1)) + j) = *((*(neutin + index2)) + j);				
+			}
+		}	
 	}
-
-	free(maxrec);
-	free(recev);
 	
 	free(selfev);
 	
@@ -559,7 +557,7 @@ int main(int argc, char *argv[]){
 		fprintf(stderr,"Recombination rate must be positive or zero.\n");
 		exit(1);
 	}
-	Rin /= 2.0*N;
+/*	Rin /= 2.0*N; */
 	
 	x0 = strtod(argv[6],NULL);
 	if(x0 < (1.0/(2.0*N)) || x0 > 1.0-(1.0/(2.0*N)) ){
@@ -669,7 +667,7 @@ int main(int argc, char *argv[]){
 			while(done != 1){
 			
 				/* Generating new population */
-				generation(N,self,R,nums,selindvP,selindvO,neutindvP,neutindvO,cumfit,&fitsum,npoly,r);
+				generation(N,self,R,nums,selindvP,selindvO,neutindvP,neutindvO,cumfit,&fitsum,npoly,polypos,r);
 		
 				/* Neutral Mutation phase */
 				addpoly(N, neutindvO, polypos, &npoly, theta, r);
