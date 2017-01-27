@@ -29,7 +29,7 @@ separately from this file.
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define INITTS 500
+#define INITTS 1000
 
 /* Function prototypes */
 void Wait();
@@ -586,7 +586,7 @@ int main(int argc, char *argv[]){
 		fprintf(stderr,"Recombination rate must be positive or zero.\n");
 		exit(1);
 	}
-/*	Rin /= 2.0*N;	*/
+	Rin /= 2.0*N;
 	
 	theta = strtod(argv[4],NULL);
 	if(theta <= 0){
