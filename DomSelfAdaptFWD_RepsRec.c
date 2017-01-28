@@ -37,6 +37,7 @@ void fitness(unsigned int N, double h, double s, unsigned int *inpop, double *ou
 double sumT_UI(unsigned int *Tin, unsigned int nrow);
 unsigned int parchoose(unsigned int N, double *culfit, double *fitsum, const gsl_rng *r);
 unsigned int bitswitch(unsigned int x);
+void rec_sort(double *index, unsigned int nrow);
 void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r);
 void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, const gsl_rng *r);
 void reassign(unsigned int **neutin, unsigned int **neutout, unsigned int *selin, unsigned int *selout, unsigned int npoly, unsigned int N);
@@ -155,6 +156,24 @@ unsigned int bitswitch(unsigned int x){
 	return ret;
 }
 
+/* Sorting rec events after choosing them */
+void rec_sort(double *index, unsigned int nrow){
+	unsigned int j, i;		/* Sorting indices */
+	double temp0;		/* For swapping */
+	
+	for(j = 1; j < nrow; j++){
+		i = j;
+		while( (i > 0) && ( *(index + (i - 1) ) > *(index + i) )){
+			/* Swapping entries */
+			temp0 = *(index + (i - 1));
+			*(index + (i - 1)) =  *(index + (i));
+			*(index + (i)) = temp0;			
+			i--;
+		}
+	}
+	
+}
+
 /* Reproduction routine */
 void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r){
 	unsigned int i, j, k;		/* Pop counter, neutral marker counter, rec counter */
@@ -212,6 +231,7 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 				*(recev + k) = gsl_ran_flat(r,0,1);
 			}
 			*(recev + nrec) = 1.01;
+			rec_sort(recev,nrec+1);
 			
 			recix = 0;
 			for(j = 0; j < npoly; j++){
@@ -231,6 +251,7 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 				*(recev2 + k) = gsl_ran_flat(r,0,1);
 			}
 			*(recev2 + nrec) = 1.01;
+			rec_sort(recev2,nrec+1);
 			
 			recix = 0;
 			for(j = 0; j < npoly; j++){
