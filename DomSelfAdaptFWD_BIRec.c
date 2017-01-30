@@ -177,7 +177,7 @@ void rec_sort(double *index, unsigned int nrow){
 
 /* Reproduction routine */
 void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r){
-	unsigned int i, j, k;		/* Pop counter, neutral marker counter, rec counter */
+	unsigned int i, j, k;		/* Pop counter, neutral marker counter, rec event counter */
 	unsigned int isself = 0;	/* Is this a selfing reproduction? */
 	unsigned int choose1 = 0;	/* Chromosome to be selected */
 	unsigned int choose2 = 0;	/* Chromosome to be selected (2nd with outcrossing) */
@@ -186,9 +186,11 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 	unsigned int index1 = 0;	/* Index of chosen sample 1 */
 	unsigned int index2 = 0;	/* Index of chosen sample 2 */
 	unsigned int nself = 0;		/* Number of selfing events */
-	unsigned int nrec = 0;		/* Number of rec events */
 	unsigned int selfix = 0;	/* Selfing index */
-	unsigned int recix = 0;		/* Recombination index */
+	unsigned int recix1 = 0;	/* Rec index chr 1 */
+	unsigned int recix2 = 0;	/* Rec index chr 2 */
+	unsigned int nrec1 = 0;		/* Number rec events chr 1 */
+	unsigned int nrec2 = 0;		/* Number rec events chr 2 */
 	
 	/* First deciding number of selfing events; creating vector of events + choosing */
 	nself = gsl_ran_binomial(r, self, N);
@@ -199,7 +201,6 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
     	
     	/* Choosing first parent, and relevant chromosomes */
 		choose1 = parchoose(N, culfit, fitsum, r);
-/*		printf("%d\n",choose1);*/
 		wc1 = gsl_ran_bernoulli(r,0.5);
 		wc2 = gsl_ran_bernoulli(r,0.5);
 		index1 = 2*choose1 + wc1;
@@ -216,7 +217,6 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 			index2 = 2*choose1 + wc2;
 		}else if(isself == 0){
 			choose2 = parchoose(N, culfit, fitsum, r);
-/*			printf("%d\n",choose2);*/
 			index2 = 2*choose2 + wc2;
 		}
 		(*(selout + 2*i)) = (*(selin + index1));
@@ -224,49 +224,46 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 		
 		/* Now copying over neutral fragment, accounting for recombination */
 		if(R != 0){
-		
-			/* Now going along neutral fragment and recombining segment */
-			nrec = gsl_ran_poisson(r, R);
-			double *recev = calloc(nrec + 1,sizeof(double));
-			for(k = 0; k < nrec; k++){
-				*(recev + k) = gsl_ran_flat(r,0,1);
+			/* Choosing number of recombination events on arms 1, 2 */
+			recix1 = 0;
+			recix2 = 0;
+			nrec1 = gsl_ran_poisson(r,R);
+			nrec2 = gsl_ran_poisson(r,R);
+			double *recev1 = calloc(nrec1 + 1,sizeof(double));
+			double *recev2 = calloc(nrec2 + 1,sizeof(double));
+			for(k = 0; k < nrec1; k++){
+				*(recev1 + k) = gsl_ran_flat(r,0,1);
 			}
-			*(recev + nrec) = 1.01;
-			rec_sort(recev,nrec+1);
-			
-			recix = 0;
-			for(j = 0; j < npoly; j++){
-				if(*(polypos + j) >= *(recev + recix)){
-					wc1 = bitswitch(wc1);
-					index1 = 2*choose1 + wc1;
-					recix++;
-				}
-				*((*(neutout + 2*i)) + j) = *((*(neutin + index1)) + j);
-			}
-			free(recev);
-			
-			/* Now same for chr 2 */
-			nrec = gsl_ran_poisson(r, R);
-			double *recev2 = calloc(nrec + 1,sizeof(double));
-			for(k = 0; k < nrec; k++){
+			for(k = 0; k < nrec2; k++){
 				*(recev2 + k) = gsl_ran_flat(r,0,1);
 			}
-			*(recev2 + nrec) = 1.01;
-			rec_sort(recev2,nrec+1);
+			*(recev1 + nrec1) = 1.01;
+			*(recev2 + nrec2) = 1.01;			
+			rec_sort(recev1,nrec1 + 1);
+			rec_sort(recev2,nrec2 + 1);
 			
-			recix = 0;
 			for(j = 0; j < npoly; j++){
-				if(*(polypos + j) >= *(recev2 + recix)){
+				if( (*(polypos + j)) >= *(recev1 + recix1)){
+					wc1 = bitswitch(wc1);
+					index1 = 2*choose1 + wc1;
+					recix1++;
+				}
+				if( (*(polypos + j)) >= *(recev2 + recix2)){
 					wc2 = bitswitch(wc2);
 					if(isself == 1){
 						index2 = 2*choose1 + wc2;
 					}else if(isself == 0){
 						index2 = 2*choose2 + wc2;
 					}
-					recix++;
+					recix2++;
 				}
+				
+				*((*(neutout + 2*i)) + j) = *((*(neutin + index1)) + j);
 				*((*(neutout + 2*i + 1)) + j) = *((*(neutin + index2)) + j);
+				
 			}
+			
+			free(recev1);
 			free(recev2);
 			
 		}else if (R == 0){
@@ -274,7 +271,7 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 				*((*(neutout + 2*i)) + j) = *((*(neutin + index1)) + j);
 				*((*(neutout + 2*i + 1)) + j) = *((*(neutin + index2)) + j);				
 			}
-		}	
+		}
 	}
 	
 	free(selfev);
