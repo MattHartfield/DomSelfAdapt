@@ -33,109 +33,20 @@ separately from this file.
 
 /* Function prototypes */
 void Wait();
-void fitness(unsigned int N, double h, double s, unsigned int *inpop, double *outfit, double *outcf, double *fitsum);
-double sumT_UI(unsigned int *Tin, unsigned int nrow);
-unsigned int parchoose(unsigned int N, double *culfit, double *fitsum, const gsl_rng *r);
 unsigned int bitswitch(unsigned int x);
-void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r);
+void generation_BI(unsigned int N, double self, double R, unsigned int *nums, unsigned int **neutin, unsigned int **neutout, unsigned int npoly, double *polypos, const gsl_rng *r);
 void rec_sort(double *index, unsigned int nrow);
 void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, const gsl_rng *r);
-void reassign(unsigned int **neutin, unsigned int **neutout, unsigned int *selin, unsigned int *selout, unsigned int npoly, unsigned int N);
-void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N);
+void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N, unsigned int aft);
 void popprint(unsigned int **neutin, double *posin, unsigned int npoly, unsigned int N, unsigned int ei, unsigned int suffix);
 void polyprint(unsigned int **neutin, double *posin, unsigned int npoly, unsigned int N);
 void ptrim(unsigned int size, unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int *npolyT, double *avpi);
-void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int **neutin, unsigned int *nums2, unsigned int npoly, unsigned int ei, unsigned int rep, const gsl_rng *r);
 unsigned int uniqueH(unsigned int **neutin, unsigned int npoly, unsigned int N);
 
 void Wait(){
 	printf("Press Enter to Continue");
 	while( getchar() != '\n' );
 	printf("\n");	
-}
-
-/* Fitness calculation routine */
-void fitness(unsigned int N, double h, double s, unsigned int *inpop, double *outfit, double *outcf, double *fitsum){
-	unsigned int i;				/* Pop counter */
-	unsigned int ac = 0;		/* Allele copies in indv */
-	
-	/* Calculating new fitnesses */
-    *fitsum = 0;
-	for(i = 0; i < N; i++){
-		ac = 0;
-		ac = (*(inpop + 2*i)) + (*(inpop + 2*i + 1));
-		if(ac == 0){
-			*(outfit + i) = 1;
-		}else if(ac == 1){
-			*(outfit + i) = 1 + h*s;
-		}else if(ac == 2){
-			*(outfit + i) = 1 + s;
-		}
-		*fitsum += *(outfit + i);
-		*(outcf + i) = *fitsum;
-    }
-}	/* End of fitness routine */
-
-/* Summing entire table (unsigned int) */
-double sumT_UI(unsigned int *Tin, unsigned int nrow){
-	unsigned int i;
-	double res = 0;
-	for(i = 0; i < nrow; i++){
-		res += (*(Tin + i));
-	}
-	return res;
-}
-
-/* Parent choosing */
-unsigned int parchoose(unsigned int N, double *culfit, double *fitsum, const gsl_rng *r){
-		
-	double a;					/* Random number */
-	unsigned int done = 0;		/* Signal to determine whether selection complete */
-	unsigned int cases = 0;		/* Determines whether one should add up or decrease */
-	unsigned int choose1 = 0;	/* Chromosome to be selected */
-	unsigned int firstgo = 0;	/* First try at choosing progeny */
-	
-	done = 0;
-	cases = 0;
-	choose1 = 0;
-	a = gsl_ran_flat(r,0.0,1.0);
-	firstgo = (int)N*a;
-	
-	/* Choosing case */
-	if (((*(culfit + firstgo)/(*(fitsum))) >= a) && firstgo == 0){
-		cases = 3;
-	} else if (((*(culfit + firstgo)/(*(fitsum))) >= a) && firstgo != 0){
-		cases = 2;
-	} else {
-		cases = 1;
-	}
-	
-	switch(cases)
-	{
-		case 1:
-			while(done != 1){
-				firstgo++;
-				if((*(culfit + firstgo)/(*(fitsum))) >= a){
-					choose1 = firstgo;
-					done = 1;
-				}
-			}
-			break;
-		case 2:
-			while(done != 1){
-				firstgo--;
-				if((*(culfit + firstgo)/(*(fitsum))) < a || firstgo == 0){
-					choose1 = (firstgo + 1);
-					done = 1;
-				}
-			}
-		break;
-		case 3:
-			choose1 = 0;
-			break;
-	}
-	
-	return choose1;
 }
 
 /* Bit-switching routine */
@@ -176,7 +87,7 @@ void rec_sort(double *index, unsigned int nrow){
 }
 
 /* Reproduction routine */
-void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r){
+void generation_BI(unsigned int N, double self, double R, unsigned int *nums, unsigned int **neutin, unsigned int **neutout, unsigned int npoly, double *polypos, const gsl_rng *r){
 	unsigned int i, j, k;		/* Pop counter, neutral marker counter, rec event counter */
 	unsigned int isself = 0;	/* Is this a selfing reproduction? */
 	unsigned int choose1 = 0;	/* Chromosome to be selected */
@@ -200,7 +111,8 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 	for(i = 0; i < N; i++){		/* Regenerating population */
     	
     	/* Choosing first parent, and relevant chromosomes */
-		choose1 = parchoose(N, culfit, fitsum, r);
+    	/* ADJUSTED SO PURELY NEUTRAL SELECTION ONLY */
+		choose1 = gsl_rng_uniform_int(r,N);
 		wc1 = gsl_ran_bernoulli(r,0.5);
 		wc2 = gsl_ran_bernoulli(r,0.5);
 		index1 = 2*choose1 + wc1;
@@ -216,11 +128,9 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 		if(isself == 1){
 			index2 = 2*choose1 + wc2;
 		}else if(isself == 0){
-			choose2 = parchoose(N, culfit, fitsum, r);
+			choose2 = gsl_rng_uniform_int(r,N);
 			index2 = 2*choose2 + wc2;
 		}
-		(*(selout + 2*i)) = (*(selin + index1));
-		(*(selout + 2*i + 1)) = (*(selin + index2));
 		
 		/* Now copying over neutral fragment, accounting for recombination */
 		if(R != 0){
@@ -293,9 +203,9 @@ void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned in
 	
 	for(j = 0; j < newpoly; j++){
 		ploc = gsl_ran_flat(r,0.0,1.0);
-/*		printf("ploc is %lf\n",ploc);		*/
+/*		printf("ploc is %lf\n",ploc);	*/
 		pchr = gsl_rng_uniform_int(r,2*N);
-/*		printf("pchr is %d\n",pchr);		*/
+/*		printf("pchr is %d\n",pchr);*/
 		
 		/* Inserting new polymorphism */
 		if(*(npoly) == 0){
@@ -348,27 +258,14 @@ void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned in
 	}
 }
 
-/* Reassigning new population routine */
-void reassign(unsigned int **neutin, unsigned int **neutout, unsigned int *selin, unsigned int *selout, unsigned int npoly, unsigned int N){
-	unsigned int i, j;		/* pop counter, poly counter */
-	
-	for(i = 0; i < 2*N; i++){
-		*(selout + i) = *(selin + i);
-		for(j = 0; j < npoly; j++){
-			*((*(neutout + i)) + j) = *((*(neutin + i)) + j);
-		}
-	}
-	
-}	/* End of reassignment routine */
-
 /* Reassigning new population routine (after trimming) */
-void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N){
+void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N, unsigned int aft){
 	unsigned int i, j;		/* pop counter, poly counter */
 	
 	for(i = 0; i < 2*N; i++){
 		for(j = 0; j < npoly; j++){
 			*((*(neutout + i)) + j) = *((*(neutin + i)) + j);
-			if(i == 0){
+			if(i == 0 && aft == 1){
 				*(posout + j) = *(posin + j);
 			}
 		}
@@ -428,7 +325,7 @@ void ptrim(unsigned int size, unsigned int **neutin, unsigned int **neutout, dou
 		}
 /*		printf("For poly %d, count is %d\n",j,count);*/
 		if((count > 0) && (count < size)){
-/*			printf("Keeping poly %d\n",j);	*/
+/*			printf("Keeping poly %d at location %lf\n",j,*(posin + j));	*/
 			newp++;
 			cumpi += ((count*(size-count))/(1.0*size*size));
 /*			printf("Count is %d, freq is %lf, cumulative value is %lf\n",count,count/(1.0*size),cumpi);	*/
@@ -444,66 +341,6 @@ void ptrim(unsigned int size, unsigned int **neutin, unsigned int **neutout, dou
 	
 	*npolyT = newp;
 	*avpi = (cumpi/(1.0*newp));
-}
-
-/* Producing mutational samples */
-void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int **neutin, unsigned int *nums2, unsigned int npoly, unsigned int ei, unsigned int rep, const gsl_rng *r){
-
-	unsigned int a, j, x;
-	unsigned int currsamp;
-	unsigned int npolyT;
-	double avpi;
-	char Mout[32];				 /* String to hold filename in (Mutations) */
-	FILE *ofp_mut = NULL;		 /* Pointer for data output */
-	
-	for(x = 0; x < rep; x++){
-	
-		double *polyposF = calloc(npoly,sizeof(double));						/* Position of neutral mutations (final for polymorphism sampling) */
-		unsigned int **nsamp = calloc(samps,sizeof(unsigned int *));			/* Table of neutral markers per individual (final for sampling) */
-		unsigned int **nsampT = calloc(samps,sizeof(unsigned int *));			/* Table of neutral markers per individual (final for sampling) AFTER TRIMMING */
-		for(a = 0; a < samps; a++){
-			nsamp[a] = calloc(npoly,sizeof(unsigned int));	
-			nsampT[a] = calloc(npoly,sizeof(unsigned int));				
-		}
-		
-		npolyT = npoly;
-	
-		/* Choosing which haplotypes to sample */
-		unsigned int *thesamp = calloc(samps,sizeof(unsigned int));
-		gsl_ran_choose(r, thesamp, samps, nums2, 2*N, sizeof(unsigned int));
-	
-		for(a = 0; a < samps; a++){
-			currsamp = *(thesamp + a);
-			for(j = 0; j < npoly; j++){
-				*((*(nsamp + a)) + j) = *((*(neutin + currsamp)) + j);
-			}
-		}
-		
-		/* Check, then include code to ONLY print out polymorphic sites in table? */
-		ptrim(samps, nsamp, nsampT, polypos, polyposF, npoly, &npolyT, &avpi);
-	
-		/* Printing out sample table */
-		sprintf(Mout,"Mutations/Muts_%d.dat",ei*rep + x);
-		ofp_mut = fopen(Mout,"w");
-		for(j = 0; j < npolyT; j++){
-			fprintf(ofp_mut,"%lf ",*(polyposF + j));
-			for(a = 0; a < samps; a++){
-				fprintf(ofp_mut,"%d ",*((*(nsampT + a)) + j));
-			}
-			fprintf(ofp_mut,"\n");
-		}
-		fclose(ofp_mut);
-	
-		for(a = 0; a < samps; a++){
-			free(nsampT[a]);		
-			free(nsamp[a]);
-		}
-		free(nsampT);		
-		free(nsamp);
-		free(thesamp);
-		free(polyposF);
-	
-	}
 }
 
 /* Count number of unique haplotypes */
@@ -565,14 +402,13 @@ int main(int argc, char *argv[]){
 	unsigned int base = 0;		/* Number of baseline forward-in-time simulations */
 /*	unsigned int n = 0;			sprintf counter */
 	unsigned int ttot = 0;		/* Total time of simulation */
-	unsigned int unH = 0;		/* Number of unique haplotypes */
+/*	unsigned int unH = 0;		 Number of unique haplotypes */
 	unsigned int tbi = 0;		/* Burn-in time */
-	double npr = 0;				/* Number of times to print out number of stats */
+/*	double npr = 0;				 Number of times to print out number of stats */
 	double self = 0;			/* Selfing rate */
 	double Rin = 0;				/* Recombination rate (input) */
 	double R = 0;				/* Recombination rate (at a time) */
 	double theta = 0;			/* Rate of neutral mutation */
-	double fitsum = 0;			/* Summed Fitness */
 	double avpi = 0;
 	char Sout[32];				/* String to hold filename in (Seed) */		
 	FILE *ofp_sd;				/* Pointer for seed output */
@@ -653,11 +489,8 @@ int main(int argc, char *argv[]){
 /*		printf("Starting run %d\n",i);*/
 
 		/* Setting up selection, neutral tables per individual */
-		double *cumfit = calloc(N,sizeof(double));								/* Cumulative fitness of each individual */
 		double *polypos = calloc(INITTS,sizeof(double));						/* Position of neutral mutations */
 		double *polyposF = calloc(INITTS,sizeof(double));						/* Position of neutral mutations (final for polymorphism sampling) */
-		unsigned int *selindvP = calloc(2*N,sizeof(unsigned int));				/* Table of derived allele states per individual (parents) */
-		unsigned int *selindvO = calloc(2*N,sizeof(unsigned int));				/* Table of derived allele states per individual (offspring) */
 		unsigned int **neutindvP = calloc(2*N,sizeof(unsigned int *));			/* Table of neutral markers per individual (parents) */
 		unsigned int **neutindvO = calloc(2*N,sizeof(unsigned int *));			/* Table of neutral markers per individual (offspring) */
 		unsigned int **neutindvF = calloc(2*N,sizeof(unsigned int *));			/* Table of neutral markers per individual (final for sampling) */
@@ -665,43 +498,41 @@ int main(int argc, char *argv[]){
 			neutindvP[a] = calloc(INITTS,sizeof(unsigned int));	
 			neutindvO[a] = calloc(INITTS,sizeof(unsigned int));
 			neutindvF[a] = calloc(INITTS,sizeof(unsigned int));
-			if(a < N){
-				*(cumfit + a) = (a + 1);
-				fitsum++;
-			}
 		}
 		npoly = 0;
 		ttot = 0;
 		R = Rin;
 		tbi = 20*N;
-		npr = 20.0;
+/*		npr = 20.0;	*/
 	
 		while(ttot < tbi){
 			
+			/*
 			int tick = (tbi)/(npr);
 			if(ttot%tick == 0){
 				unH = uniqueH(neutindvP, npoly, N);
 				printf("Time is %d; npoly is %d; av pi is %lf, unique haps are %d\n",ttot,npoly,avpi,unH);
 			}
+			*/
 			
 			/* Generating new population */
-			generation(N,self,R,nums,selindvP,selindvO,neutindvP,neutindvO,cumfit,&fitsum,npoly,polypos,r);
+			generation_BI(N,self,R,nums,neutindvP,neutindvO,npoly,polypos,r);
 	
 			/* Neutral Mutation phase */
 			addpoly(N, neutindvO, polypos, &npoly, theta, r);
 		
 			/* Reassigning matrices */
-			reassign(neutindvO, neutindvP, selindvO, selindvP, npoly, N);
+			reassign2(neutindvO, neutindvP, polyposF, polypos, npoly, N, 0);
 
 			ttot++;
 			ptrim(2*N, neutindvP, neutindvF, polypos, polyposF, npoly, &npolyT, &avpi);
 			npoly = npolyT;
-			reassign2(neutindvF, neutindvP, polyposF, polypos, npoly, N);
+			reassign2(neutindvF, neutindvP, polyposF, polypos, npoly, N, 1);
+			
 			/*
 			printf("Number of unique haplotypes are %d\n",uniqueH(neutindvP, npoly, N));
 			polyprint(neutindvP, polypos, npoly, N);
 			*/
-			
 		}
 /*		printf("End of burn-in\n");*/
 		
@@ -721,11 +552,8 @@ int main(int argc, char *argv[]){
 		free(neutindvF);
 		free(neutindvO);
 		free(neutindvP);
-		free(selindvO);
-		free(selindvP);
 		free(polyposF);
 		free(polypos);
-		free(cumfit);
 	
 	}
 
