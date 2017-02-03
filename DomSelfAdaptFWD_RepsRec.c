@@ -29,7 +29,7 @@ separately from this file.
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define INITTS 1000
+#define INITTS 150
 
 /* Function prototypes */
 void Wait();
@@ -521,7 +521,6 @@ int main(int argc, char *argv[]){
 	unsigned int base = 0;		/* Number of baseline forward-in-time simulations */
 	unsigned int rps = 0;		/* Samples taken per baseline simulation */
 /*	unsigned int n = 0;			sprintf counter */
-	unsigned int ttot = 0;		/* Total time of simulation */
 	double s = 0;				/* Strength of selection */
 	double h = 0;				/* Dominance level */
 	double self = 0;			/* Selfing rate */
@@ -542,8 +541,8 @@ int main(int argc, char *argv[]){
 	gsl_rng * r;
 	
 	/* Reading in data from command line */
-	if(argc != 12){
-		fprintf(stderr,"Not enough inputs (need: N s h self R x0 theta basereps samples suffix npoly).\n");
+	if(argc != 13){
+		fprintf(stderr,"Not enough inputs (need: N s h self R x0 theta basereps reps-per-sim samples suffix npoly).\n");
 		exit(1);
 	}
 	
@@ -598,17 +597,23 @@ int main(int argc, char *argv[]){
 	
 	rps = atoi(argv[9]);
 	if(rps <= 0){
-		fprintf(stderr,"Samples must be > 0.\n");
+		fprintf(stderr,"Number of reps per simulation must be > 0.\n");
 		exit(1);
 	}
 	
-	suffix = atoi(argv[10]);
+	samps = atoi(argv[10]);
+	if(samps <= 0){
+		fprintf(stderr,"Number of samples taken must be > 0.\n");
+		exit(1);
+	}
+	
+	suffix = atoi(argv[11]);
 	if(argv[10] < 0){
 		fprintf(stderr,"File index must be greater than or equal to zero.\n");
 		exit(1);
 	}
 	
-	npolyB = atoi(argv[11]);
+	npolyB = atoi(argv[12]);
 	
 	/* create a generator chosen by the 
     environment variable GSL_RNG_TYPE */
@@ -660,7 +665,6 @@ int main(int argc, char *argv[]){
 				neutindvO[a] = calloc(INITTS,sizeof(unsigned int));
 				neutindvF[a] = calloc(INITTS,sizeof(unsigned int));			
 			}
-			ttot = 0;
 
 			/* Reassigning ancestral polymorphism state */
 			npoly = npolyB;
@@ -695,19 +699,15 @@ int main(int argc, char *argv[]){
 				/* Reassigning matrices */
 				reassign(neutindvO, neutindvP, selindvO, selindvP, npoly, N);
 				
-				ttot++;
-				if(ttot%1 == 0){
-					ptrim(2*N, neutindvP, neutindvF, polypos, polyposF, npoly, &npolyT,&avpi);
-					npoly = npolyT;
-					reassign2(neutindvF, neutindvP, polyposF, polypos, npoly, N);
-				}
-			
+				/* Garbage collection of non-polymorphic sites */
+				ptrim(2*N, neutindvP, neutindvF, polypos, polyposF, npoly, &npolyT,&avpi);
+				npoly = npolyT;
+				reassign2(neutindvF, neutindvP, polyposF, polypos, npoly, N);
+								
 				/* Checking derived allele copies and whether it has fixed or lost */
 				dcopies = sumT_UI(selindvP, 2.0*N);
-				/*
 				printf("Dcopies are %d\n",dcopies);				
 				printf("copies are %d, npoly are %d\n",dcopies,npoly);
-				*/
 				if(dcopies == 0){
 					done = 1;
 				}
@@ -747,7 +747,6 @@ int main(int argc, char *argv[]){
 				fclose(ofp_poly);
 		
 				/* Then, sample from this table to produce pseudo-coalescent results */
-				samps = 10;
 				mutsamp(N, samps, polyposF, neutindvF, nums2, npoly, i + suffix, rps, r);
 			
 			}
@@ -760,8 +759,8 @@ int main(int argc, char *argv[]){
 			}	
 			free(neutindvF);
 			free(neutindvO);
-			free(selindvO);
 			free(neutindvP);
+			free(selindvO);
 			free(selindvP);
 			free(polyposF);
 			free(polypos);

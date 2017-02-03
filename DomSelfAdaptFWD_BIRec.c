@@ -419,7 +419,7 @@ int main(int argc, char *argv[]){
 	
 	/* Reading in data from command line */
 	if(argc != 7){
-		fprintf(stderr,"Not enough inputs (need: N self theta basereps suffix).\n");
+		fprintf(stderr,"Not enough inputs (need: N self R theta basereps suffix).\n");
 		exit(1);
 	}
 	
@@ -455,7 +455,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	suffix = atoi(argv[6]);
-	if(argv[5] < 0){
+	if(argv[6] < 0){
 		fprintf(stderr,"File index must be greater than or equal to zero.\n");
 		exit(1);
 	}
