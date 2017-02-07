@@ -29,7 +29,7 @@ separately from this file.
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define INITTS 150
+#define INITTS 1000
 
 /* Function prototypes */
 void Wait();
@@ -614,6 +614,10 @@ int main(int argc, char *argv[]){
 	}
 	
 	npolyB = atoi(argv[12]);
+	if(npolyB > INITTS){
+		fprintf(stderr,"Size of mutation array smaller than inputted number of polymorphisms.\n");
+		exit(1);
+	}
 	
 	/* create a generator chosen by the 
     environment variable GSL_RNG_TYPE */
@@ -706,8 +710,10 @@ int main(int argc, char *argv[]){
 								
 				/* Checking derived allele copies and whether it has fixed or lost */
 				dcopies = sumT_UI(selindvP, 2.0*N);
+				/*
 				printf("Dcopies are %d\n",dcopies);				
 				printf("copies are %d, npoly are %d\n",dcopies,npoly);
+				*/
 				if(dcopies == 0){
 					done = 1;
 				}
