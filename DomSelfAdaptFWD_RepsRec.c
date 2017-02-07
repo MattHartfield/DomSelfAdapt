@@ -29,8 +29,6 @@ separately from this file.
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#define INITTS 1000
-
 /* Function prototypes */
 void Wait();
 void fitness(unsigned int N, double h, double s, unsigned int *inpop, double *outfit, double *outcf, double *fitsum);
@@ -39,7 +37,7 @@ unsigned int parchoose(unsigned int N, double *culfit, double *fitsum, const gsl
 unsigned int bitswitch(unsigned int x);
 void rec_sort(double *index, unsigned int nrow);
 void generation(unsigned int N, double self, double R, unsigned int *nums, unsigned int *selin, unsigned int *selout, unsigned int **neutin, unsigned int **neutout, double *culfit, double *fitsum, unsigned int npoly, double *polypos, const gsl_rng *r);
-void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, const gsl_rng *r);
+void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, unsigned int maxsize, const gsl_rng *r);
 void reassign(unsigned int **neutin, unsigned int **neutout, unsigned int *selin, unsigned int *selout, unsigned int npoly, unsigned int N);
 void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N);
 void polyprint(unsigned int **neutin, double *posin, unsigned int npoly, unsigned int N);
@@ -278,7 +276,7 @@ void generation(unsigned int N, double self, double R, unsigned int *nums, unsig
 }	/* End of reproduction routine */
 
 /* Adding neutral polymorphism routine */
-void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, const gsl_rng *r){
+void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned int *npoly, double theta, unsigned int maxsize, const gsl_rng *r){
 	unsigned int i, j;
 	int k;
 	unsigned int newpoly = 0;			/* Number of new polymorphisms added */
@@ -339,7 +337,7 @@ void addpoly(unsigned int N, unsigned int **neutin, double *polyloc, unsigned in
 		
 		*(npoly) += 1;
 /*		printf("n poly is %d\n",*(npoly));			*/
-		if(*(npoly) == INITTS){
+		if(*(npoly) == maxsize){
 			fprintf(stderr,"Too many neutral polymorphisms.\n");
 			exit(1);
 		}
@@ -520,6 +518,7 @@ int main(int argc, char *argv[]){
 	unsigned int suffix = 0;	/* Number of times to subsample from population */
 	unsigned int base = 0;		/* Number of baseline forward-in-time simulations */
 	unsigned int rps = 0;		/* Samples taken per baseline simulation */
+	unsigned int INITTS = 0;	/* Initial size of mutation array */
 /*	unsigned int n = 0;			sprintf counter */
 	double s = 0;				/* Strength of selection */
 	double h = 0;				/* Dominance level */
@@ -614,11 +613,8 @@ int main(int argc, char *argv[]){
 	}
 	
 	npolyB = atoi(argv[12]);
-	if(npolyB > INITTS){
-		fprintf(stderr,"Size of mutation array smaller than inputted number of polymorphisms.\n");
-		exit(1);
-	}
-	
+	INITTS = 2*npolyB;
+
 	/* create a generator chosen by the 
     environment variable GSL_RNG_TYPE */
     
@@ -698,7 +694,7 @@ int main(int argc, char *argv[]){
 				generation(N,self,R,nums,selindvP,selindvO,neutindvP,neutindvO,cumfit,&fitsum,npoly,polypos,r);
 		
 				/* Neutral Mutation phase */
-				addpoly(N, neutindvO, polypos, &npoly, theta, r);
+				addpoly(N, neutindvO, polypos, &npoly, theta, INITTS, r);
 			
 				/* Reassigning matrices */
 				reassign(neutindvO, neutindvP, selindvO, selindvP, npoly, N);
