@@ -526,6 +526,7 @@ int main(int argc, char *argv[]){
 	double Rin = 0;				/* Recombination rate (input) */
 	double R = 0;				/* Recombination rate (at a time) */	
 	double x0 = 0;				/* Initial allele frequency */
+	double xfix = 0;			/* Final allele frequency (i.e. stop when allele reaches this frequency) */
 	double theta = 0;			/* Rate of neutral mutation */
 	double fitsum = 0;			/* Summed Fitness */
 	double scurr = 0;			/* Current fitness of mutant (to account for initial neutrality) */
@@ -540,8 +541,8 @@ int main(int argc, char *argv[]){
 	gsl_rng * r;
 	
 	/* Reading in data from command line */
-	if(argc != 13){
-		fprintf(stderr,"Not enough inputs (need: N s h self R x0 theta basereps reps-per-sim samples suffix npoly).\n");
+	if(argc != 14){
+		fprintf(stderr,"Not enough inputs (need: N s h self R x0 xfix theta basereps reps-per-sim samples suffix npoly).\n");
 		exit(1);
 	}
 	
@@ -582,37 +583,47 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 	
-	theta = strtod(argv[7],NULL);
+	xfix = strtod(argv[7],NULL);
+	if(xfix < 0 || xfix > 1.0 ){
+		fprintf(stderr,"Final mutant frequency must lie between 0 and 1.\n");
+		exit(1);
+	}
+	if(xfix <= x0){
+		fprintf(stderr,"Final mutant frequency must be greater than initial mutant frequency.\n");
+		exit(1);
+	}
+	
+	theta = strtod(argv[8],NULL);
 	if(theta <= 0){
 		fprintf(stderr,"Mutation rate must be a positive value.\n");
 		exit(1);
 	}
 	
-	base = atoi(argv[8]);
+	base = atoi(argv[9]);
 	if(base <= 0){
 		fprintf(stderr,"Number of baseline simulations must be greater than zero.\n");
 		exit(1);
 	}
 	
-	rps = atoi(argv[9]);
+	rps = atoi(argv[10]);
 	if(rps <= 0){
 		fprintf(stderr,"Number of reps per simulation must be > 0.\n");
 		exit(1);
 	}
 	
-	samps = atoi(argv[10]);
+	samps = atoi(argv[11]);
 	if(samps <= 0){
 		fprintf(stderr,"Number of samples taken must be > 0.\n");
 		exit(1);
 	}
 	
-	suffix = atoi(argv[11]);
+	suffix = atoi(argv[12]);
 	if(argv[10] < 0){
 		fprintf(stderr,"File index must be greater than or equal to zero.\n");
 		exit(1);
 	}
 	
-	npolyB = atoi(argv[12]);
+	npolyB = atoi(argv[13]);
 	INITTS = 2*npolyB;
 
 	/* create a generator chosen by the 
@@ -712,8 +723,9 @@ int main(int argc, char *argv[]){
 				*/
 				if(dcopies == 0){
 					done = 1;
+/*					printf("Selected allele lost\n");*/
 				}
-				if(dcopies == 2.0*N){
+				if(dcopies >= (int)(2.0*N*xfix)){
 					done = 1;
 					afix = 1;
 				}
@@ -722,7 +734,7 @@ int main(int argc, char *argv[]){
 				if(((dcopies/(2.0*N)) >= x0) && nowsel == 0){
 					nowsel = 1;
 					scurr = s;
-	/*				printf("scurr is %lf\n",scurr);	*/
+/*					printf("scurr is %lf\n",scurr);	*/
 				}
 				fitness(N, h, scurr, selindvP, fit, cumfit, &fitsum);
 			}
