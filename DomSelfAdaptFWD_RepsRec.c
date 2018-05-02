@@ -1,13 +1,10 @@
 /* DomSelfAdaptFWD.c
 
-Forward-in-time simulation of an adaptive alleles with dominance and selfing, with linked neutral fragment
-(A check of the coalescent simulation)
+Forward-in-time simulation of an adaptive alleles with dominance and selfing, with linked neutral fragment.
 
-This is the BATCH version - to be used on cluster machine to produce many simulation replicates at once
+This is the BATCH version - to be used on cluster machine to produce many simulation replicates at once.
 
-Reps program: Reads in pre-calculated tables and introduces neutral mutations based on them
-
-< Add further preamble here once the program is near release - e.g. runtime instructions, etc. >
+Reps program: Reads in pre-calculated tables and introduces neutral mutations based on them. See README for more information.
 
 Simulation uses routines found with the GNU Scientific Library (GSL)
 (http://www.gnu.org/software/gsl/)
@@ -42,7 +39,7 @@ void reassign(unsigned int **neutin, unsigned int **neutout, unsigned int *selin
 void reassign2(unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int N);
 void polyprint(unsigned int **neutin, double *posin, unsigned int npoly, unsigned int N);
 void ptrim(unsigned int size, unsigned int **neutin, unsigned int **neutout, double *posin, double *posout, unsigned int npoly, unsigned int *npolyT, double *avpi);
-void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int **neutin, unsigned int *nums2, unsigned int npoly, unsigned int ei, unsigned int rep, const gsl_rng *r);
+void mutsamp(unsigned int N, unsigned int samps, unsigned int *selin, double *polypos, unsigned int **neutin, unsigned int *nums2, unsigned int npoly, unsigned int ei, unsigned int rep, const gsl_rng *r);
 void popread(unsigned int **neutin, double *posin, unsigned int npoly, unsigned int N, unsigned int ei, unsigned int suffix);
 
 void Wait(){
@@ -417,7 +414,7 @@ void ptrim(unsigned int size, unsigned int **neutin, unsigned int **neutout, dou
 }
 
 /* Producing mutational samples */
-void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int **neutin, unsigned int *nums2, unsigned int npoly, unsigned int ei, unsigned int rep, const gsl_rng *r){
+void mutsamp(unsigned int N, unsigned int samps, unsigned int *selin, double *polypos, unsigned int **neutin, unsigned int *nums2, unsigned int npoly, unsigned int ei, unsigned int rep, const gsl_rng *r){
 
 	unsigned int a, j, x;
 	unsigned int currsamp;
@@ -429,6 +426,7 @@ void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int *
 	for(x = 0; x < rep; x++){
 	
 		double *polyposF = calloc(npoly,sizeof(double));						/* Position of neutral mutations (final for polymorphism sampling) */
+		unsigned int *selsamp = calloc(samps,sizeof(unsigned int *));			/* State of selected locus after sim stops */
 		unsigned int **nsamp = calloc(samps,sizeof(unsigned int *));			/* Table of neutral markers per individual (final for sampling) */
 		unsigned int **nsampT = calloc(samps,sizeof(unsigned int *));			/* Table of neutral markers per individual (final for sampling) AFTER TRIMMING */
 		for(a = 0; a < samps; a++){
@@ -444,6 +442,7 @@ void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int *
 	
 		for(a = 0; a < samps; a++){
 			currsamp = *(thesamp + a);
+			*(selsamp + a) = *(selin + currsamp);
 			for(j = 0; j < npoly; j++){
 				*((*(nsamp + a)) + j) = *((*(neutin + currsamp)) + j);
 			}
@@ -451,10 +450,18 @@ void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int *
 		
 		/* Check, then include code to ONLY print out polymorphic sites in table? */
 		ptrim(samps, nsamp, nsampT, polypos, polyposF, npoly, &npolyT, &avpi);
-	
+		
 		/* Printing out sample table */
 		sprintf(Mout,"Mutations/Muts_%d.dat",ei*rep + x);
 		ofp_mut = fopen(Mout,"w");
+		
+		/* State of selected site */
+		fprintf(ofp_mut,"0 ");
+		for(a = 0; a < samps; a++){
+			fprintf(ofp_mut,"%d ",*(selsamp + a));
+		}
+		fprintf(ofp_mut,"\n");
+		
 		for(j = 0; j < npolyT; j++){
 			fprintf(ofp_mut,"%lf ",*(polyposF + j));
 			for(a = 0; a < samps; a++){
@@ -471,6 +478,7 @@ void mutsamp(unsigned int N, unsigned int samps, double *polypos, unsigned int *
 		free(nsampT);		
 		free(nsamp);
 		free(thesamp);
+		free(selsamp);		
 		free(polyposF);
 	
 	}
@@ -618,7 +626,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	suffix = atoi(argv[12]);
-	if(argv[10] < 0){
+	if(argv[12] < 0){
 		fprintf(stderr,"File index must be greater than or equal to zero.\n");
 		exit(1);
 	}
@@ -739,7 +747,7 @@ int main(int argc, char *argv[]){
 				fitness(N, h, scurr, selindvP, fit, cumfit, &fitsum);
 			}
 		
-			/* Routine to print out polymorphisms if allele fixed*/
+			/* Routine to print out polymorphisms if allele fixed */
 			if(afix == 1){
 			
 				printf("Selected allele fixed\n");
@@ -751,6 +759,15 @@ int main(int argc, char *argv[]){
 				/* Printing out polymorphism table */
 				sprintf(Pout,"Polymorphisms/Poly_%d.dat",i + suffix);
 				ofp_poly = fopen(Pout,"w");
+				
+				/* State of selected site */
+				fprintf(ofp_poly,"0 ");
+				for(x = 0; x < 2*N; x++){
+					fprintf(ofp_poly,"%d ",*(selindvP + x));
+				}
+				fprintf(ofp_poly,"\n");
+				
+				/* State of neutral sites */
 				for(a = 0; a < npoly; a++){
 					fprintf(ofp_poly,"%lf ",*(polyposF + a));
 					for(x = 0; x < 2*N; x++){
@@ -761,7 +778,7 @@ int main(int argc, char *argv[]){
 				fclose(ofp_poly);
 		
 				/* Then, sample from this table to produce pseudo-coalescent results */
-				mutsamp(N, samps, polyposF, neutindvF, nums2, npoly, i + suffix, rps, r);
+				mutsamp(N, samps, selindvP, polyposF, neutindvF, nums2, npoly, i + suffix, rps, r);
 			
 			}
 		

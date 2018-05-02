@@ -1,13 +1,10 @@
 /* DomSelfAdaptFWD.c
 
-Forward-in-time simulation of an adaptive alleles with dominance and selfing, with linked neutral fragment
-(A check of the coalescent simulation)
+Forward-in-time simulation of an adaptive alleles with dominance and selfing, with linked neutral fragment.
 
-This is the BATCH version - to be used on cluster machine to produce many simulation replicates at once
+This is the BATCH version - to be used on cluster machine to produce many simulation replicates at once.
 
-Burn-in program: generates neutral background diversity for other simulations to use
-
-< Add further preamble here once the program is near release - e.g. runtime instructions, etc. >
+Burn-in program: generates neutral background diversity for other simulations to use. See README for more information.
 
 Simulation uses routines found with the GNU Scientific Library (GSL)
 (http://www.gnu.org/software/gsl/)
