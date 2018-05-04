@@ -12,7 +12,7 @@ Programs can be compiled with e.g. GCC using a command like: gcc DomSelfAdaptFWD
 
 Where:
 - N is the population size
-- self is the rate of self-fertilisation (related to inbreeding rate F = self/(2-self))
+- self is the rate of self-fertilisation (related to inbreeding rate F = self/(2-self)
 - R is the population-level recombination rate 2Nr across the entire sample
 - theta = 4Nu is the population-level mutation rate
 - base is the number of simulations to run (i.e. number of repetitions). Must be set to one.
@@ -41,4 +41,4 @@ Where:
 
 The outputs are placed in two folders: 'Polymorphisms', which is a file of polymorphisms for the entire population; and 'Mutations', which are files of sampled mutations. Note that the state of the selected allele (at location 0) is also provided.
 
-Note that although it is possible to define more than one repetition of each simulation, these programs are designed to be run on a cluster machine, where each node only executes a single neutral population (for DomSelfAdaptFWD_BIRec) or selective sweep (for DomSelfAdaptFWD_RepsRec). Hence it is not recommended to run more than one rep per simulation, otherwise the indexing or inputs and outputs may be erroneous.
+Note that although it is possible to define more than one repetition of each simulation, these programs are designed to be run on a cluster machine, where each node only executes a single neutral population (for DomSelfAdaptFWD_BIRec) or selective sweep (for DomSelfAdaptFWD_RepsRec). Hence it is recommended to only run one rep per simulation.
