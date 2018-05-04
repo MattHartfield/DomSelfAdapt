@@ -8,13 +8,13 @@ Programs can be compiled with e.g. GCC using a command like: gcc DomSelfAdaptFWD
 
 'DomSelfAdaptFWD_BIRec.c' needs to be run first in order to generate neutral diversity (i.e. in the absence of selection). The program is executed as:
 
-./DomSelfAdaptFWD_BIRec N self R theta basereps suffix
+./DomSelfAdaptFWD_BIRec N self R 4Nu basereps suffix
 
 Where:
 - N is the population size
 - self is the rate of self-fertilisation (related to inbreeding rate F = self/(2-self)
 - R is the population-level recombination rate 2Nr across the entire sample
-- theta = 4Nu is the population-level mutation rate
+- 4Nu is the population-level mutation rate
 - base is the number of simulations to run (i.e. number of repetitions). Must be set to one.
 - suffix is the baseline numbering for indexing simulation outputs
 
@@ -22,7 +22,7 @@ The outputs are files "Pop_X.dat" where X is the rep+suffix number. These list t
 
 Next one runs DomSelfAdaptFWD_RepsRec to simulate a sweep from these burn-in populations. The program is executed as:
 
-./DomSelfAdaptFWD_RepsRec N s h self R x0 xfix theta basereps reps-per-sim samples suffix npoly
+./DomSelfAdaptFWD_RepsRec N s h self R x0 xfix 4Nu basereps reps-per-sim samples suffix npoly
 
 Where:
 - N is the population size
@@ -32,7 +32,7 @@ Where:
 - R is the population-level recombination rate 2Nr across the entire sample
 - x0 is the frequency at which the derived allele becomes advantageous
 - xfix is the fixation frequency of the sweep, at which point haplotypes are sampled
-- theta = 4Nu is the population-level mutation rate
+- 4Nu is the population-level mutation rate
 - basereps is the number of simulations to run (i.e. number of repetitions). Must be set to one.
 - reps-per-sim is the number of times haplotypes are sampled from the fixed state
 - samples is the number of haplotypes to sample from the final population
